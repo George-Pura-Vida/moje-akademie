@@ -1,36 +1,33 @@
-# Automatické nasazení na WebKitty
+# Automatické nasazení Moje akademie
 
 Cílový web: https://moje-akademie.jirijanousek.cz/
 
-Workflow po změně hlavní aplikace na větvi main zkontroluje soubory. Automatický přenos je záměrně neaktivní, dokud není výslovně zapnut proměnnou níže. Žádné hostingové heslo není součástí repozitáře.
+## Aktivní způsob nasazování
 
-## Jednorázové nastavení
+WebKitty je propojený s veřejným repozitářem George-Pura-Vida/moje-akademie. Zdrojová kopie je v samostatné složce moje-akademie-git, webové soubory ve složce moje-akademie. Subdoména již míří do této webové složky.
 
-V GitHub repozitáři otevři Settings → Secrets and variables → Actions.
+Na WebKitty je zapnutá plánovaná úloha, která každých 5 minut spouští:
 
-Do Repository secrets vlož:
+```sh
+/bin/sh /home/sites/1a/1/1f8017897e/moje-akademie-git/scripts/deploy_webkitty_native.sh --sync
+```
 
-| Název | Hodnota |
-| --- | --- |
-| WEBKITTY_FTP_HOST | Přesný FTP server uvedený v WebKitty FTP Details, bez protokolu |
-| WEBKITTY_FTP_USER | FTP uživatelské jméno |
-| WEBKITTY_FTP_PASSWORD | Heslo FTP účtu |
-| WEBKITTY_REMOTE_DIR | Ověřená kořenová složka této subdomény z pohledu FTP účtu |
+Úloha stáhne větev main přes veřejné HTTPS, provede pouze fast-forward aktualizaci a při změně commitu nasadí index.html, style.css a app.js. Do _version.json zapíše identifikátor nasazeného commitu. Nezměněný commit znovu nenasazuje. Heslo k FTP ani token GitHubu nejsou pro tento způsob potřeba.
 
-Cestu nepřebírej podle odhadu. Pokud FTP účet začíná přímo v kořeni této aplikace, použij `/`. Vhodný je samostatný účet omezený na složku akademie. Ověř podporu explicitního FTPS a platný certifikát hostitele. Skript neposílá nešifrované FTP a neobchází kontrolu certifikátu.
+První přenos byl úspěšně ověřen spuštěním stejného příkazu přes Test Command; webová aplikace se načetla na cílové HTTPS adrese. Úloha byla uložena jako Enabled s intervalem Every 5 minutes.
 
-Volitelná Repository variable `WEBKITTY_FTP_PORT` mění výchozí port 21.
+## Správa
 
-WebKitty musí přenos z GitHub runneru povolit. Případné omezení přístupu řeš nastavením konkrétního FTP účtu / povoleného runneru; workflow nic neodemyká a nemění nastavení hostingu.
+- Změny na větvi main se obvykle projeví do pěti minut plus doba běhu úlohy a případná cache.
+- Okamžité stažení repozitáře je možné tlačítkem Deploy ve WebKitty Git Version Control. Pro okamžitou aktualizaci webové složky lze v Scheduled Tasks použít Test Command u této konkrétní úlohy.
+- Automat vypneš odškrtnutím Enabled pouze u úlohy obsahující moje-akademie-git.
+- Předchozí verze dotčených souborů se zálohují do .deploy-state/backups uvnitř zdrojové kopie, mimo kořen webu.
+- Skript nemaže ostatní soubory webu, nezasahuje do ostatních aplikací a používá zámek proti souběžným běhům.
+- Nasazení jednotlivých souborů probíhá přejmenováním připravených kopií. Celá sada není atomická; při selhání obnov zálohu nebo zopakuj úlohu.
+- Při konfliktu s místními změnami Git fast-forward odmítne. Příčinu nejprve vyřeš, neprováděj reset serverové kopie naslepo.
 
-## První nasazení
+## GitHub Actions jako alternativní cesta
 
-1. Zálohuj dosavadní tři soubory cílového webu, pokud existují.
-2. V Actions vyber **Moje akademie – WebKitty**, klikni **Run workflow**, zvol main a zaškrtni potvrzení nasazení.
-3. Ověř úspěch přenosu a funkčnost aplikace na cílové adrese.
-4. Chceš-li nasazovat automaticky při dalších změnách aplikace na main, přidej v **Variables** hodnotu `WEBKITTY_DEPLOY_ENABLED` = `true`.
-5. Automatické nasazování vypneš změnou této hodnoty na `false`.
+Soubor .github/workflows/webkitty.yml kontroluje aplikaci. Jeho alternativní FTPS přenos není pro aktivní způsob potřeba. Nezapínej současně WEBKITTY_DEPLOY_ENABLED a další přenos, aby se nasazování nepřekrývalo.
 
-Skript přepisuje pouze `style.css`, `app.js` a `index.html`, v tomto pořadí. Ostatní soubory nemaže. Přenos není atomický: při selhání již může být část souborů nová. Zopakuj úspěšně celý přenos nebo obnov zálohu. Nové sloučené změny na main jsou po zapnutí automatu automaticky nasazovány.
-
-Toto nastavení nenahrazuje DNS, založení subdomény ani HTTPS na hostingu. Osobní historie tréninků zůstává v prohlížeči a do GitHubu se neodesílá.
+Historie tréninků zůstává v prohlížeči návštěvníka. Na GitHub ani do nasazovací úlohy se neposílá.
