@@ -30,6 +30,7 @@ for file in style.css app.js voice.js api.php index.html; do
   cp "$repo/$file" "$stage/$file"
   chmod 644 "$stage/$file"
 done
+sed "s/voice-20261119-1/$sha/g" "$repo/index.html" > "$stage/index.html"
 printf '{"commit":"%s","deployed_at":"%s"}\n' "$sha" "$stamp" > "$stage/_version.json"
 chmod 644 "$stage/_version.json"
 for file in style.css app.js voice.js api.php index.html _version.json; do
