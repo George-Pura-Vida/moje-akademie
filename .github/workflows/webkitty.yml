@@ -1,0 +1,59 @@
+name: Moje akademie – WebKitty
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - style.css
+      - app.js
+      - scripts/deploy_webkitty.py
+      - .github/workflows/webkitty.yml
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Potvrzuji nasazení na moje-akademie.jirijanousek.cz'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moje-akademie-webkitty
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Kontrola JavaScriptu a nasazovacího skriptu
+        run: |
+          node --check app.js
+          python3 -m py_compile scripts/deploy_webkitty.py
+          test -s index.html
+          test -s style.css
+      - name: Stav automatického nasazování
+        if: vars.WEBKITTY_DEPLOY_ENABLED != 'true'
+        run: echo 'Automatický přenos je vypnutý. Doplň nastavení podle AUTOMAT.md. Kontroly aplikace proběhly.'
+
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && vars.WEBKITTY_DEPLOY_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.deploy == true))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Nasazení přes šifrované FTPS
+        env:
+          WEBKITTY_FTP_HOST: ${{ secrets.WEBKITTY_FTP_HOST }}
+          WEBKITTY_FTP_USER: ${{ secrets.WEBKITTY_FTP_USER }}
+          WEBKITTY_FTP_PASSWORD: ${{ secrets.WEBKITTY_FTP_PASSWORD }}
+          WEBKITTY_REMOTE_DIR: ${{ secrets.WEBKITTY_REMOTE_DIR }}
+          WEBKITTY_FTP_PORT: ${{ vars.WEBKITTY_FTP_PORT }}
+        run: python3 scripts/deploy_webkitty.py
